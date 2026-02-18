@@ -91,7 +91,6 @@ async function build() {
     console.log('📂 Copying static files...');
     const filesToCopy = [
         'manifest.json',
-        'app.jsx', // We will compile this later, but copying for ref serves as backup or source map reference if needed? Actually we don't need to copy app.jsx to dist, we compile it. But the original script might have. Let's stick to compiling.
         'background.js'
     ];
     
@@ -123,7 +122,7 @@ async function build() {
         await downloadFile(lib.url, path.join(DIST_DIR, lib.name));
     }
 
-    // 3.1 Download Phosphor Icons (SVGs only) and generate icons.js
+    // 3.1 Download Phosphor Icons (SVGs only) and prepare for injection
     console.log('⬇️ Downloading Phosphor Icons (SVGs)...');
     const iconsObj = {};
     const iconBaseUrl = 'https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular';
@@ -150,8 +149,17 @@ async function build() {
         }
     }
     
+    // We will inject icons directly into index.html instead of creating a separate file
+    // to avoid loading issues.
+    
+    // Also update icons.js in root for development environment
     const iconsJsContent = `window.TINIFY_ICONS = ${JSON.stringify(iconsObj)};`;
+    fs.writeFileSync('icons.js', iconsJsContent);
+    // Also write to dist/icons.js to solve CSP issue
     fs.writeFileSync(path.join(DIST_DIR, 'icons.js'), iconsJsContent);
+    console.log('✅ Updated icons.js in root and dist');
+
+
 
     // 4. Build Tailwind CSS
     console.log('🎨 Building Tailwind CSS...');
@@ -256,7 +264,8 @@ async function build() {
     addFileToZip(path.join(DIST_DIR, 'style.css'), 'style.css');
     addFileToZip(path.join(DIST_DIR, 'app.js'), 'app.js');
     // Also include app.jsx for reference if needed? No, user only needs compiled.
-    addFileToZip(path.join(DIST_DIR, 'app.jsx'), 'app.jsx'); // Keeping it as per previous build
+    // addFileToZip(path.join(DIST_DIR, 'app.jsx'), 'app.jsx'); // Removed: source code should not be in distribution
+    // Icons are now inline, no need for icons.js
     addFileToZip(path.join(DIST_DIR, 'icons.js'), 'icons.js');
     addFileToZip(path.join(DIST_DIR, 'react.js'), 'react.js');
     addFileToZip(path.join(DIST_DIR, 'react-dom.js'), 'react-dom.js');
