@@ -1,0 +1,35 @@
+Tinify Image Compressor
+
+Tinify Image Compressor is an efficient browser extension powered by the Tinify API (TinyPNG/TinyJPG). It helps you batch compress images locally without uploading them to third-party servers, ensuring your privacy and data security.
+
+Key Features:
+
+- Smart Lossless Compression: Utilizes Tinify's advanced compression algorithms to significantly reduce image file size (typically by 50-80%) with virtually no visible quality loss.
+- Batch Processing: Supports dragging and dropping multiple files or folders for compression at once.
+- Privacy & Security: Images are processed directly via the official Tinify API through encrypted connections. No intermediate servers are used.
+- Local Storage: Your API Key is securely stored in your local browser storage.
+- Format Support: Perfectly supports WebP, PNG, and JPEG image formats.
+- One-Click Download: Download compressed images individually or package them all into a ZIP file with a single click.
+
+How to Use:
+
+1. Get an API Key:
+   Visit the TinyPNG Developer page (https://tinypng.com/developers) to register and get a free API Key (500 free compressions per month).
+2. Setup Extension:
+   Open the extension and paste your API Key into the input field.
+3. Start Compressing:
+   Click or drag your image files into the upload area.
+   Click the "Start Compression" button.
+4. Download Results:
+   Once compression is complete, you can see the compression ratio for each file.
+   Click "Download All" to get a ZIP package of all optimized images.
+
+Privacy Policy:
+
+This extension does not collect any personal user information. All image processing is conducted through direct, encrypted communication with the Tinify API. Your API Key is stored only in your local browser cache.
+
+Version History:
+
+- v2.2: Optimized extension size with on-demand icon loading; fixed style issues; added multi-language support (English/Chinese).
+- v2.1: Improved UI interactions and added compression progress bars.
+- v2.0: Major overhaul with support for folder uploads and batch ZIP downloads.
