@@ -558,6 +558,23 @@ const App = () => {
       </div>
 
       {/* Drop Zone */}
+      <input
+        type='file'
+        multiple
+        accept='image/png, image/jpeg, image/webp'
+        className='hidden'
+        ref={fileInputRef}
+        onChange={handleFileSelect}
+      />
+      <input
+        type='file'
+        webkitdirectory=''
+        directory=''
+        multiple
+        className='hidden'
+        ref={folderInputRef}
+        onChange={handleFileSelect}
+      />
       <div
         className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-200 cursor-pointer ${
           isDragging
@@ -572,23 +589,6 @@ const App = () => {
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
       >
-        <input
-          type='file'
-          multiple
-          accept='image/png, image/jpeg, image/webp'
-          className='hidden'
-          ref={fileInputRef}
-          onChange={handleFileSelect}
-        />
-        <input
-          type='file'
-          webkitdirectory=''
-          directory=''
-          multiple
-          className='hidden'
-          ref={folderInputRef}
-          onChange={handleFileSelect}
-        />
 
         <div className='w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4'>
           <Icon name='cloud-arrow-up' className='text-3xl' />
