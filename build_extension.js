@@ -239,78 +239,68 @@ async function build() {
     // 7. Create ZIP file
     console.log('🤐 Zipping extension...');
     
-    // Attempt to require JSZip (needs npm install jszip)
-    let JSZip;
     try {
-        // Try to require from local node_modules first
-        JSZip = require(path.join(__dirname, 'node_modules', 'jszip'));
-    } catch (e) {
+        // Use system zip command for reliability
+        // Remove existing zip if any
+        if (fs.existsSync('tinify-extension.zip')) {
+            fs.unlinkSync('tinify-extension.zip');
+        }
+        
+        // cd into dist and zip everything to ../tinify-extension.zip
+        execSync('cd dist && zip -r ../tinify-extension.zip .', { stdio: 'inherit' });
+        console.log('✅ Build Complete! Created tinify-extension.zip');
+    } catch (error) {
+        console.error('❌ Failed to create zip file:', error.message);
+        
+        // Fallback to JSZip if system zip fails (e.g. on Windows without zip in path)
+        console.log('⚠️ System zip failed, trying JSZip fallback...');
+        
+        let JSZip;
         try {
-            JSZip = require('jszip');
-        } catch (e2) {
-             console.log('⚠️ JSZip not found, trying to install...');
-             execSync('npm install --no-save jszip', { stdio: 'inherit' });
-             // After install, we must require using absolute path or reload module logic
-             // But simpler is to rely on standard require resolution after install
-             // However, in some envs, require cache or resolution might need help
-             JSZip = require(path.join(__dirname, 'node_modules', 'jszip'));
-        }
-    }
-
-    const zip = new JSZip();
-    
-    // Helper to add file to zip
-    function addFileToZip(filePath, zipPath) {
-        if (fs.existsSync(filePath)) {
-            const content = fs.readFileSync(filePath);
-            zip.file(zipPath, content);
-        }
-    }
-    
-    // Add files
-    addFileToZip(path.join(DIST_DIR, 'manifest.json'), 'manifest.json');
-    addFileToZip(path.join(DIST_DIR, 'index.html'), 'index.html');
-    addFileToZip(path.join(DIST_DIR, 'background.js'), 'background.js');
-    addFileToZip(path.join(DIST_DIR, 'style.css'), 'style.css');
-    addFileToZip(path.join(DIST_DIR, 'app.js'), 'app.js');
-    // Also include app.jsx for reference if needed? No, user only needs compiled.
-    // addFileToZip(path.join(DIST_DIR, 'app.jsx'), 'app.jsx'); // Removed: source code should not be in distribution
-    // Icons are now inline, no need for icons.js
-    addFileToZip(path.join(DIST_DIR, 'icons.js'), 'icons.js');
-    addFileToZip(path.join(DIST_DIR, 'react.js'), 'react.js');
-    addFileToZip(path.join(DIST_DIR, 'react-dom.js'), 'react-dom.js');
-    addFileToZip(path.join(DIST_DIR, 'jszip.min.js'), 'jszip.min.js');
-    
-    // Add icons folder
-    if (fs.existsSync(path.join(DIST_DIR, 'icons'))) {
-        const iconFiles = fs.readdirSync(path.join(DIST_DIR, 'icons'));
-        const iconsFolder = zip.folder('icons');
-        iconFiles.forEach(file => {
-            const content = fs.readFileSync(path.join(DIST_DIR, 'icons', file));
-            iconsFolder.file(file, content);
-        });
-    }
-
-    // Add _locales folder
-    if (fs.existsSync(path.join(DIST_DIR, '_locales'))) {
-        const localesFolder = zip.folder('_locales');
-        const localeDirs = fs.readdirSync(path.join(DIST_DIR, '_locales'));
-        localeDirs.forEach(locale => {
-            if (fs.statSync(path.join(DIST_DIR, '_locales', locale)).isDirectory()) {
-                const localeFolder = localesFolder.folder(locale);
-                const msgFile = path.join(DIST_DIR, '_locales', locale, 'messages.json');
-                if (fs.existsSync(msgFile)) {
-                    localeFolder.file('messages.json', fs.readFileSync(msgFile));
-                }
+            JSZip = require(path.join(__dirname, 'node_modules', 'jszip'));
+        } catch (e) {
+            try {
+                JSZip = require('jszip');
+            } catch (e2) {
+                 console.log('⚠️ JSZip not found, trying to install...');
+                 execSync('npm install --no-save jszip', { stdio: 'inherit' });
+                 JSZip = require(path.join(__dirname, 'node_modules', 'jszip'));
             }
-        });
-    }
+        }
 
-    zip.generateNodeStream({ type: 'nodebuffer', streamFiles: true })
-        .pipe(fs.createWriteStream('tinify-extension.zip'))
-        .on('finish', () => {
-            console.log('✅ Build Complete! Created tinify-extension.zip');
-        });
+        const zip = new JSZip();
+        
+        function addFileToZip(filePath, zipPath) {
+            if (fs.existsSync(filePath)) {
+                const content = fs.readFileSync(filePath);
+                zip.file(zipPath, content);
+            }
+        }
+        
+        // Add files from dist
+        const files = fs.readdirSync(DIST_DIR);
+        
+        function addDirToZip(dirPath, zipDir) {
+            const files = fs.readdirSync(dirPath);
+            files.forEach(file => {
+                const fullPath = path.join(dirPath, file);
+                const zipPath = path.join(zipDir, file);
+                if (fs.statSync(fullPath).isDirectory()) {
+                    addDirToZip(fullPath, zipPath);
+                } else {
+                    addFileToZip(fullPath, zipPath);
+                }
+            });
+        }
+
+        addDirToZip(DIST_DIR, '');
+
+        zip.generateNodeStream({ type: 'nodebuffer', streamFiles: true })
+            .pipe(fs.createWriteStream('tinify-extension.zip'))
+            .on('finish', () => {
+                console.log('✅ Build Complete! Created tinify-extension.zip (fallback)');
+            });
+    }
 }
 
 build().catch(console.error);

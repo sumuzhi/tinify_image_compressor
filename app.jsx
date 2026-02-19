@@ -5,6 +5,8 @@ const DB_NAME = 'TinifyCompressorDB';
 const DB_VERSION = 1;
 const STORE_NAME = 'files';
 
+const PROXY_BASE_URL = 'https://helloworld-jplwkponbj.cn-hangzhou.fcapp.run';
+
 const openDB = () => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -89,6 +91,7 @@ const Button = ({
   disabled,
   variant = 'primary',
   className = '',
+  ...props
 }) => {
   const baseStyle =
     'px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed';
@@ -105,6 +108,7 @@ const Button = ({
       onClick={onClick}
       disabled={disabled}
       className={`${baseStyle} ${variants[variant]} ${className}`}
+      {...props}
     >
       {children}
     </button>
@@ -130,7 +134,7 @@ const ProgressBar = ({ progress, status }) => {
   );
 };
 
-const FileItem = ({ item, onRemove }) => {
+const FileItem = ({ item, onRemove, onDownload }) => {
   const formatSize = (bytes) => {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -222,23 +226,7 @@ const FileItem = ({ item, onRemove }) => {
       <div className='flex items-center gap-2 ml-4'>
         {item.status === 'success' && (
           <button
-            onClick={() => {
-              if (window.chrome && chrome.downloads) {
-                chrome.downloads.download({
-                  url: item.url,
-                  filename: item.name
-                });
-              } else {
-                // Fallback for non-extension environment
-                const a = document.createElement('a');
-                a.href = item.url;
-                a.download = item.name;
-                a.target = '_blank';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-              }
-            }}
+            onClick={() => onDownload(item)}
             className='p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors'
             title='下载'
           >
@@ -362,7 +350,7 @@ const App = () => {
 
   const compressFile = async (fileItem) => {
     const useProxy = !apiKey;
-    const url = useProxy ? 'http://localhost:3000/api/compress' : 'https://api.tinify.com/shrink';
+    const url = useProxy ? `${PROXY_BASE_URL}/api/compress` : 'https://api.tinify.com/shrink';
 
     try {
       // Update status to compressing
@@ -428,6 +416,62 @@ const App = () => {
     setIsProcessing(false);
   };
 
+  const downloadFileContent = async (url) => {
+    const useProxy = !apiKey;
+
+    if (useProxy) {
+      const proxyDownloadUrl = `${PROXY_BASE_URL}/api/download`;
+      
+      const response = await fetch(proxyDownloadUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ url })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Proxy download failed: ${response.statusText}`);
+      }
+      return await response.blob();
+    } else {
+      const headers = {
+        'Authorization': 'Basic ' + btoa('api:' + apiKey)
+      };
+      
+      const response = await fetch(url, { headers });
+      if (!response.ok) {
+        throw new Error(`Direct download failed: ${response.statusText}`);
+      }
+      return await response.blob();
+    }
+  };
+
+  const handleDownload = async (fileItem) => {
+    try {
+      const blob = await downloadFileContent(fileItem.url);
+      const objectUrl = URL.createObjectURL(blob);
+      
+      if (window.chrome && chrome.downloads) {
+        chrome.downloads.download({
+          url: objectUrl,
+          filename: fileItem.name
+        });
+      } else {
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = fileItem.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+    } catch (err) {
+      console.error('Download failed', err);
+      alert(`下载失败: ${err.message}`);
+    }
+  };
+
   const downloadAll = async () => {
     const successFiles = files.filter((f) => f.status === 'success');
     if (successFiles.length === 0) return;
@@ -444,8 +488,7 @@ const App = () => {
     try {
       const promises = successFiles.map(async (item) => {
         try {
-          const response = await fetch(item.url);
-          const blob = await response.blob();
+          const blob = await downloadFileContent(item.url);
           folder.file(item.name, blob);
         } catch (e) {
           console.error('Download failed for', item.name, e);
@@ -626,7 +669,12 @@ const App = () => {
       {/* File List */}
       <div className='space-y-3 pb-20'>
         {files.map((file) => (
-          <FileItem key={file.id} item={file} onRemove={removeFile} />
+          <FileItem 
+            key={file.id} 
+            item={file} 
+            onRemove={removeFile} 
+            onDownload={handleDownload}
+          />
         ))}
       </div>
     </div>

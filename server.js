@@ -79,6 +79,72 @@ app.post('/api/compress', async (req, res) => {
     }
 });
 
+// Proxy endpoint for downloading compressed file
+app.post('/api/download', async (req, res) => {
+    try {
+        const apiKey = process.env.TINIFY_API_KEY;
+        // Check if body is buffer (raw) or object (json)
+        // If raw body parser caught it but it's JSON, we might need to parse it manually or rely on content-type
+        // However, express body-parser middleware order matters. 
+        // We put raw first, then json. If content-type is json, raw is skipped?
+        // Actually, the raw parser has type: ['image/*', 'application/octet-stream'].
+        // So JSON requests should fall through to bodyParser.json().
+        
+        const { url } = req.body;
+
+        if (!apiKey) {
+            return res.status(500).json({ 
+                error: 'Server Configuration Error', 
+                message: 'Tinify API Key is not configured on the server.' 
+            });
+        }
+
+        if (!url) {
+            return res.status(400).json({ 
+                error: 'Bad Request', 
+                message: 'No URL provided in the request body.' 
+            });
+        }
+
+        // Basic security check to ensure we only proxy Tinify URLs
+        if (!url.startsWith('https://api.tinify.com/')) {
+            return res.status(400).json({ 
+                error: 'Bad Request', 
+                message: 'Invalid URL. Only Tinify URLs are allowed.' 
+            });
+        }
+
+        console.log(`⬇️ Proxying download from: ${url}`);
+
+        const response = await axios({
+            method: 'get',
+            url: url,
+            responseType: 'stream',
+            headers: {
+                'Authorization': `Basic ${Buffer.from(`api:${apiKey}`).toString('base64')}`
+            }
+        });
+
+        // Forward content headers
+        if (response.headers['content-type']) {
+            res.setHeader('Content-Type', response.headers['content-type']);
+        }
+        if (response.headers['content-length']) {
+            res.setHeader('Content-Length', response.headers['content-length']);
+        }
+
+        response.data.pipe(res);
+
+    } catch (error) {
+        console.error('❌ Download Proxy Error:', error.message);
+        res.status(500).json({ 
+            error: 'Download Proxy Error', 
+            message: 'Failed to download file via proxy.',
+            details: error.message
+        });
+    }
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
