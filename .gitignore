@@ -21,4 +21,4 @@ yarn-error.log*
 .vscode/
 .idea/
 
-tinify-extension.zip
+*.zip
