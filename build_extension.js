@@ -113,13 +113,23 @@ async function build() {
     // 3. Download Libraries & Icons
     console.log('⬇️ Downloading libraries...');
     const libraries = [
-        { url: 'https://unpkg.com/react@18/umd/react.production.min.js', name: 'react.js' },
-        { url: 'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js', name: 'react-dom.js' },
+        { url: 'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js', name: 'react.js' },
+        { url: 'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js', name: 'react-dom.js' },
         { url: 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js', name: 'jszip.min.js' }
     ];
 
     for (const lib of libraries) {
-        await downloadFile(lib.url, path.join(DIST_DIR, lib.name));
+        const destPath = path.join(DIST_DIR, lib.name);
+        try {
+            await downloadFile(lib.url, destPath);
+            if (!fs.existsSync(destPath) || fs.statSync(destPath).size === 0) {
+                throw new Error(`File ${lib.name} is empty or missing after download`);
+            }
+            console.log(`   ✅ Downloaded ${lib.name} (${fs.statSync(destPath).size} bytes)`);
+        } catch (error) {
+            console.error(`   ❌ Failed to download ${lib.name}: ${error.message}`);
+            process.exit(1);
+        }
     }
 
     // 3.1 Download Phosphor Icons (SVGs only) and prepare for injection

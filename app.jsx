@@ -371,6 +371,7 @@ const App = () => {
       }
 
       const data = await response.json();
+      console.log("🚀 ~ compressFile ~ data:", data)
 
       if (data.output && data.output.url) {
         const successItem = {
