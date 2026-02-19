@@ -221,15 +221,29 @@ const FileItem = ({ item, onRemove }) => {
 
       <div className='flex items-center gap-2 ml-4'>
         {item.status === 'success' && (
-          <a
-            href={item.url}
-            download={item.name}
-            target='_blank'
+          <button
+            onClick={() => {
+              if (window.chrome && chrome.downloads) {
+                chrome.downloads.download({
+                  url: item.url,
+                  filename: item.name
+                });
+              } else {
+                // Fallback for non-extension environment
+                const a = document.createElement('a');
+                a.href = item.url;
+                a.download = item.name;
+                a.target = '_blank';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+              }
+            }}
             className='p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors'
             title='下载'
           >
             <Icon name='download-simple' className='text-xl' />
-          </a>
+          </button>
         )}
         <button
           onClick={() => onRemove(item.id)}
@@ -347,8 +361,8 @@ const App = () => {
   };
 
   const compressFile = async (fileItem) => {
-    if (!apiKey)
-      return { ...fileItem, status: 'error', error: '请先设置 API Key' };
+    const useProxy = !apiKey;
+    const url = useProxy ? 'http://localhost:3000/api/compress' : 'https://api.tinify.com/shrink';
 
     try {
       // Update status to compressing
@@ -357,11 +371,14 @@ const App = () => {
         prev.map((f) => (f.id === fileItem.id ? updatedItem : f)),
       );
 
-      const response = await fetch('https://api.tinify.com/shrink', {
+      const headers = {};
+      if (!useProxy) {
+        headers['Authorization'] = 'Basic ' + btoa('api:' + apiKey);
+      }
+
+      const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          Authorization: 'Basic ' + btoa('api:' + apiKey),
-        },
+        headers: headers,
         body: fileItem.fileBlob,
       });
 
@@ -398,11 +415,6 @@ const App = () => {
   };
 
   const startCompression = async () => {
-    if (!apiKey) {
-      alert('请输入 Tinify API Key');
-      return;
-    }
-
     setIsProcessing(true);
     const pendingFiles = files.filter(
       (f) => f.status === 'pending' || f.status === 'error',
@@ -444,13 +456,23 @@ const App = () => {
       const content = await zip.generateAsync({ type: 'blob' });
 
       const url = URL.createObjectURL(content);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'tinify_images.zip';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 100);
+
+      if (window.chrome && chrome.downloads) {
+        chrome.downloads.download({
+          url: url,
+          filename: 'tinify_images.zip'
+        });
+      } else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'tinify_images.zip';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      
+      // Revoke URL after a delay
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
     } catch (err) {
       alert('打包下载失败');
     } finally {
@@ -477,7 +499,7 @@ const App = () => {
         <label className='block text-sm font-medium text-gray-700 mb-2'>
           Tinify API Key
           <span className='text-gray-400 font-normal ml-2'>
-            (仅保存在本地浏览器)
+            (可选 - 留空使用本地代理)
           </span>
         </label>
         <div className='relative'>
@@ -485,7 +507,7 @@ const App = () => {
             type='password'
             value={apiKey}
             onChange={handleApiKeyChange}
-            placeholder='请输入您的 API Key'
+            placeholder='请输入 API Key（可选）'
             className='w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none'
           />
           <Icon name='key' className='absolute left-3.5 top-3 text-gray-400 text-lg' />

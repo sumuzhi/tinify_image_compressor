@@ -24,6 +24,10 @@
     "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'"
   },
   "host_permissions": [
-    "https://api.tinify.com/*"
+    "https://api.tinify.com/*",
+    "http://localhost:3000/*"
+  ],
+  "permissions": [
+    "downloads"
   ]
 }
